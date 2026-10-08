@@ -1,0 +1,328 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Resume Relevance Checker</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+:root{--bg:#f4f6fb;--card:#fff;--ink:#1c2333;--mut:#667085;--pri:#5b5bd6;--ok:#12a150;--warn:#d98e04;--bad:#d92d20;--line:#e4e7ec}
+*{box-sizing:border-box}
+body{margin:0;font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--ink)}
+header{background:linear-gradient(90deg,#5b5bd6,#8a4fd1);color:#fff;padding:18px 24px}
+header h1{margin:0;font-size:22px}header p{margin:2px 0 0;opacity:.85;font-size:13px}
+nav{display:flex;gap:6px;padding:10px 24px;background:#fff;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5;flex-wrap:wrap}
+nav button{border:0;background:none;padding:8px 14px;border-radius:8px;font:inherit;cursor:pointer;color:var(--mut)}
+nav button.on{background:#eef0ff;color:var(--pri);font-weight:600}
+main{max-width:1150px;margin:20px auto;padding:0 16px}
+.tab{display:none}.tab.on{display:block}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:16px}
+.card h3{margin:0 0 10px;font-size:16px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:16px}
+.kpi{background:#fff;border:1px solid var(--line);border-radius:14px;padding:16px;text-align:center}
+.kpi b{display:block;font-size:28px;color:var(--pri)}.kpi span{color:var(--mut);font-size:13px}
+.grid3{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px}
+.cv{height:240px;position:relative}
+textarea,input[type=text],select,input[type=file]{width:100%;padding:10px;border:1px solid var(--line);border-radius:10px;font:inherit;background:#fff}
+textarea{min-height:170px;resize:vertical}
+button.btn{background:var(--pri);color:#fff;border:0;border-radius:10px;padding:10px 18px;font:inherit;cursor:pointer;font-weight:600}
+button.btn:disabled{opacity:.5;cursor:wait}
+button.sm{border:1px solid var(--line);background:#fff;border-radius:8px;padding:4px 10px;cursor:pointer;font:inherit;font-size:13px}
+button.sm.bad{color:var(--bad)}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.sp{flex:1}
+.mut{color:var(--mut)}
+.chip{display:inline-block;padding:2px 9px;margin:2px;border-radius:999px;font-size:12px;background:#eef0ff;color:#3f3fb5}
+.chip.ok{background:#e3f6ea;color:#0b7a3a}.chip.bad{background:#fde8e6;color:#b42318}.chip.warn{background:#fff4d6;color:#8a5a00}
+.tw{overflow:auto}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{padding:9px 10px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}
+th{color:var(--mut);font-weight:600;font-size:12px;text-transform:uppercase}
+tbody tr[data-id]{cursor:pointer}tbody tr[data-id]:hover{background:#f8f9ff}
+.v{padding:2px 10px;border-radius:999px;font-weight:600;font-size:12px}
+.v-High{background:#e3f6ea;color:#0b7a3a}.v-Medium{background:#fff4d6;color:#8a5a00}.v-Low{background:#fde8e6;color:#b42318}
+.filters{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-bottom:12px}
+.progress{height:10px;background:#e9ebf5;border-radius:99px;overflow:hidden;margin:8px 0}
+.progress i{display:block;height:100%;width:0;background:var(--pri);transition:width .3s}
+dialog{border:0;border-radius:16px;max-width:760px;width:94%;padding:22px;box-shadow:0 20px 60px rgba(0,0,0,.25)}
+dialog::backdrop{background:rgba(20,22,40,.45)}
+.dh{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.dh h2{margin:0}
+#toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#1c2333;color:#fff;padding:10px 18px;border-radius:10px;opacity:0;pointer-events:none;transition:.3s;z-index:20}
+#toast.on{opacity:1}#toast.err{background:var(--bad)}
+.bar2{display:flex;align-items:center;gap:8px;margin:3px 0;font-size:13px}.bar2 i{display:block;height:8px;border-radius:99px;background:var(--pri)}
+.bar2 span.k{width:130px;color:var(--mut)}
+</style>
+</head>
+<body>
+<header>
+  <h1>Automated Resume Relevance Check System</h1>
+  <p>Hybrid rule-based + semantic evaluation of resumes against job descriptions</p>
+</header>
+<nav>
+  <button data-tab="dashboard" class="on">Dashboard</button>
+  <button data-tab="jds">Job Descriptions</button>
+  <button data-tab="evaluate">Evaluate Resumes</button>
+  <button data-tab="results">Results</button>
+</nav>
+<main>
+
+<section id="tab-dashboard" class="tab on">
+  <div id="kpis" class="kpis"></div>
+  <div class="grid3">
+    <div class="card"><h3>Verdict split</h3><div class="cv"><canvas id="cVerdict"></canvas></div></div>
+    <div class="card"><h3>Score distribution</h3><div class="cv"><canvas id="cHist"></canvas></div></div>
+    <div class="card"><h3>Average score by role</h3><div class="cv"><canvas id="cRole"></canvas></div></div>
+  </div>
+  <div class="card"><h3>Top candidates</h3><div class="tw"><table>
+    <thead><tr><th>Candidate</th><th>Role</th><th>Score</th><th>Verdict</th></tr></thead>
+    <tbody id="topList"></tbody></table></div></div>
+</section>
+
+<section id="tab-jds" class="tab">
+  <div class="card">
+    <h3>Add job description</h3>
+    <p class="mut" style="margin-top:0">Paste text or upload a PDF/DOCX/TXT. A file that lists several numbered roles (e.g. "1. Data Science Interns", "2. Data Engineer Intern") is split into separate roles automatically.</p>
+    <textarea id="jdText" placeholder="Paste the job description here..."></textarea>
+    <div class="row" style="margin-top:10px">
+      <input type="file" id="jdFile" accept=".pdf,.docx,.txt" style="max-width:320px">
+      <button class="btn" id="parseBtn">Parse &amp; save</button>
+      <span class="sp"></span>
+      <button class="sm" id="s1">Load sample JD 1</button>
+      <button class="sm" id="s2">Load sample JD 2</button>
+    </div>
+  </div>
+  <div id="jdList"></div>
+</section>
+
+<section id="tab-evaluate" class="tab">
+  <div class="card">
+    <h3>Evaluate resumes</h3>
+    <div class="filters">
+      <div><label class="mut">Job role</label><select id="jdSel"></select></div>
+      <div><label class="mut">Resumes (PDF / DOCX / TXT, multiple allowed)</label><input type="file" id="resumeFiles" accept=".pdf,.docx,.txt" multiple></div>
+    </div>
+    <label class="row"><input type="checkbox" id="useLLM"> <span id="llmHint">Add LLM reasoning &amp; feedback</span></label>
+    <div class="row" style="margin-top:12px"><button class="btn" id="runBtn">Evaluate</button></div>
+    <div id="prog" hidden><div class="progress"><i id="bar"></i></div><div id="progTxt" class="mut"></div></div>
+  </div>
+  <div id="batch"></div>
+</section>
+
+<section id="tab-results" class="tab">
+  <div class="card">
+    <div class="filters">
+      <input type="text" id="fq" placeholder="Search name, email, skill...">
+      <select id="fRole"></select>
+      <select id="fVerdict"><option value="">All verdicts</option><option>High</option><option>Medium</option><option>Low</option></select>
+      <select id="fLoc"></select>
+      <div><label class="mut">Min score: <b id="fMinVal">0</b></label><input type="range" id="fMin" min="0" max="100" value="0" style="width:100%"></div>
+    </div>
+    <div class="row"><span id="resCount" class="mut"></span><span class="sp"></span>
+      <button class="sm" id="exportBtn">Export CSV</button><button class="sm bad" id="clearBtn">Clear all results</button></div>
+  </div>
+  <div class="card"><div class="tw"><table>
+    <thead><tr><th>Candidate</th><th>Email</th><th>Location</th><th>Role</th><th>Score</th><th>Verdict</th><th>Missing must-haves</th></tr></thead>
+    <tbody id="resBody"></tbody></table></div></div>
+</section>
+</main>
+
+<dialog id="dlg"></dialog>
+<div id="toast"></div>
+
+<script>
+const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const store={get(k,d){try{const v=JSON.parse(localStorage.getItem(k));return v??d}catch{return d}},set(k,v){localStorage.setItem(k,JSON.stringify(v))}};
+let JDS=store.get('rrc_jds',[]),RES=store.get('rrc_results',[]),charts={};
+const save=()=>{store.set('rrc_jds',JDS);store.set('rrc_results',RES)};
+const dlg=$('#dlg');
+if(typeof Chart!=='undefined')Chart.defaults.maintainAspectRatio=false;
+
+function toast(m,bad){const t=$('#toast');t.textContent=m;t.className='on'+(bad?' err':'');clearTimeout(toast.t);toast.t=setTimeout(()=>t.className='',3200)}
+async function api(url,opts){
+  let r;try{r=await fetch(url,opts)}catch{throw new Error('Network error')}
+  const t=await r.text();let j=null;try{j=JSON.parse(t)}catch{}
+  if(!r.ok)throw new Error((j&&j.error)||(r.status===413?'File too large (limit ~4 MB)':`Server error ${r.status}`));
+  return j;
+}
+const chips=(a,c)=>(a&&a.length)?a.map(x=>`<span class="chip ${c||''}">${esc(x)}</span>`).join(''):'';
+const vbadge=v=>`<span class="v v-${esc(v)}">${esc(v)}</span>`;
+const chart=(id,cfg)=>{if(typeof Chart==='undefined')return;charts[id]?.destroy();charts[id]=new Chart($('#'+id),cfg)};
+const opts=(sel,vals,all)=>{const el=$(sel),cur=el.value;el.innerHTML=`<option value="">${all}</option>`+vals.map(v=>`<option>${esc(v)}</option>`).join('');el.value=vals.includes(cur)?cur:''};
+
+/* ---------- tabs ---------- */
+$$('nav button').forEach(b=>b.onclick=()=>show(b.dataset.tab));
+function show(id){
+  $$('nav button').forEach(b=>b.classList.toggle('on',b.dataset.tab===id));
+  $$('.tab').forEach(s=>s.classList.toggle('on',s.id==='tab-'+id));
+  ({dashboard:renderDash,jds:renderJDs,evaluate:renderEval,results:renderResults})[id]();
+}
+
+/* ---------- dashboard ---------- */
+function renderDash(){
+  const R=RES.filter(r=>!r.error);
+  const avg=R.length?(R.reduce((a,r)=>a+r.score,0)/R.length).toFixed(1):'–';
+  $('#kpis').innerHTML=[['Resumes evaluated',R.length],['Average score',avg],['High fit',R.filter(r=>r.verdict==='High').length],['Job roles',JDS.length]]
+    .map(([k,v])=>`<div class="kpi"><b>${v}</b><span>${k}</span></div>`).join('');
+  chart('cVerdict',{type:'doughnut',data:{labels:['High','Medium','Low'],datasets:[{data:['High','Medium','Low'].map(v=>R.filter(r=>r.verdict===v).length),backgroundColor:['#12a150','#d98e04','#d92d20']}]},options:{plugins:{legend:{position:'bottom'}}}});
+  const bins=[0,0,0,0,0];R.forEach(r=>bins[Math.min(4,Math.floor(r.score/20))]++);
+  chart('cHist',{type:'bar',data:{labels:['0-19','20-39','40-59','60-79','80-100'],datasets:[{data:bins,backgroundColor:'#5b5bd6'}]},options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{precision:0}}}}});
+  const by={};R.forEach(r=>{(by[r.role]??=[]).push(r.score)});const roles=Object.keys(by);
+  chart('cRole',{type:'bar',data:{labels:roles,datasets:[{data:roles.map(k=>+(by[k].reduce((a,b)=>a+b,0)/by[k].length).toFixed(1)),backgroundColor:'#8a4fd1'}]},options:{indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{beginAtZero:true,max:100}}}});
+  const top=[...R].sort((a,b)=>b.score-a.score).slice(0,8);
+  $('#topList').innerHTML=top.length?top.map(r=>`<tr data-id="${esc(r.id)}"><td>${esc(r.candidate)}</td><td>${esc(r.role)}</td><td><b>${r.score}</b></td><td>${vbadge(r.verdict)}</td></tr>`).join(''):'<tr><td colspan="4" class="mut">No data yet – add a job description and evaluate some resumes.</td></tr>';
+}
+$('#topList').onclick=e=>{const tr=e.target.closest('tr[data-id]');if(tr)openDetail(tr.dataset.id)};
+
+/* ---------- job descriptions ---------- */
+const SAMPLE1=`Data Analyst – Manufacturing Analytics (Axion Ray)
+What you will do
+- Understand manufacturing data from clients and devise strategies to solve pain points
+- Work on data exploration, analysis and automation of data cleaning tasks
+- Work with the data science and product team to generate insights on client data
+Who you are
+- Bachelor's degree in Mechanical/Automotive/Production/Manufacturing engineering
+- Has at least one year of experience in a manufacturing company
+- Experience working on Excel sheets for processing large amounts of data
+- Experience in Python (Pandas)/R
+- Can collaborate with machine learning engineers, data scientists and product managers`;
+const SAMPLE2=`Detailed Job Descriptions for Walk-In Drive
+1. Data Science Interns
+- Internship Duration: 6 months, followed by permanent employment
+- Role Overview:
+- Work on data engineering, data visualization, and data science tasks
+- Build deep learning models using Generative AI, Computer Vision, and NLP
+- Apply ML and deep learning algorithms effectively
+- Work with data visualization tools like Tableau or Power BI
+- Perform data processing using Pandas and Spark
+- Qualification: B.Tech, BE
+- Location: Pune (Onsite)
+
+2. Data Engineer Intern
+- Location: Pune (Onsite)
+- No prior experience required
+- Formal training on Python & Spark
+- Skills:
+- Exceptional programming skills in Python, Spark, Kafka, Pyspark, and C++
+- Strong SQL and complex query writing skills
+- Knowledge of Pandas, Numpy, and Databricks (advantageous)
+- Familiarity with Exploratory Data Analysis and data pre-processing
+- Qualification: B.Tech, BE`;
+$('#s1').onclick=()=>$('#jdText').value=SAMPLE1;
+$('#s2').onclick=()=>$('#jdText').value=SAMPLE2;
+const busy=(sel,b)=>{$(sel).disabled=b};
+
+$('#parseBtn').onclick=async()=>{
+  const fd=new FormData(),f=$('#jdFile').files[0],t=$('#jdText').value.trim();
+  if(f)fd.append('file',f);else if(t.length>=30)fd.append('text',t);else return toast('Paste a job description or choose a file',1);
+  busy('#parseBtn',true);
+  try{
+    const {roles}=await api('/api/parse-jd',{method:'POST',body:fd});
+    roles.forEach((r,i)=>JDS.push({...r,id:Date.now()+'-'+i}));
+    save();$('#jdText').value='';$('#jdFile').value='';renderJDs();toast(`Saved ${roles.length} role(s)`);
+  }catch(e){toast(e.message,1)}finally{busy('#parseBtn',false)}
+};
+function renderJDs(){
+  $('#jdList').innerHTML=JDS.length?JDS.map(j=>{
+    const q=j.qualifications||{},lv=['',"Bachelor's","Master's",'PhD'][q.level||0];
+    const meta=[j.location,j.min_years?`${j.min_years}+ yrs experience`:'',lv?`${lv} degree`:'',q.needs_engineering?'engineering degree':'',(q.fields||[]).length?'fields: '+q.fields.join('/'):''].filter(Boolean).join(' · ');
+    return `<div class="card"><div class="row"><h3 style="margin:0">${esc(j.title)}</h3><span class="sp"></span>
+      <button class="sm" data-act="ren" data-id="${esc(j.id)}">Rename</button><button class="sm bad" data-act="del" data-id="${esc(j.id)}">Delete</button></div>
+      <div class="mut">${esc(meta)||'No extra requirements detected'}</div>
+      <p><b>Must-have:</b> ${chips(j.must_have,'ok')||'<span class="mut">none detected</span>'}</p>
+      <p><b>Good-to-have:</b> ${chips(j.good_to_have)||'<span class="mut">none detected</span>'}</p></div>`}).join('')
+    :'<div class="card mut">No job descriptions yet. Paste one above or load a sample.</div>';
+}
+$('#jdList').onclick=e=>{
+  const b=e.target.closest('button[data-act]');if(!b)return;const j=JDS.find(x=>x.id===b.dataset.id);if(!j)return;
+  if(b.dataset.act==='del'){if(confirm('Delete this role?')){JDS=JDS.filter(x=>x!==j);save();renderJDs()}}
+  else{const t=prompt('Role title',j.title);if(t&&t.trim()){j.title=t.trim().slice(0,120);save();renderJDs()}}
+};
+
+/* ---------- evaluate ---------- */
+let LLM=false;
+fetch('/api/health').then(r=>r.json()).then(h=>{LLM=!!h.llm_enabled;
+  $('#useLLM').disabled=!LLM;
+  $('#llmHint').textContent=LLM?'Add LLM reasoning & feedback (slower)':'LLM reasoning unavailable (set ANTHROPIC_API_KEY on the server)'}).catch(()=>{});
+function renderEval(){
+  $('#jdSel').innerHTML=JDS.length?JDS.map(j=>`<option value="${esc(j.id)}">${esc(j.title)}</option>`).join(''):'<option value="">Add a job description first</option>';
+}
+$('#runBtn').onclick=async()=>{
+  const jd=JDS.find(j=>j.id===$('#jdSel').value),files=[...$('#resumeFiles').files];
+  if(!jd)return toast('Add a job description first',1);
+  if(!files.length)return toast('Choose at least one resume',1);
+  const useLLM=LLM&&$('#useLLM').checked,out=[];let done=0;
+  busy('#runBtn',true);$('#prog').hidden=false;$('#bar').style.width='0';
+  for(const f of files){
+    $('#progTxt').textContent=`Evaluating ${f.name} (${done+1}/${files.length})`;
+    const fd=new FormData();fd.append('resume',f);fd.append('jd',JSON.stringify(jd));fd.append('use_llm',useLLM?'1':'0');
+    try{
+      const r=await api('/api/evaluate',{method:'POST',body:fd});
+      const rec={...r,id:jd.id+'|'+f.name,role_id:jd.id,role:jd.title,job_location:jd.location||'',ts:new Date().toISOString()};
+      RES=RES.filter(x=>x.id!==rec.id);RES.push(rec);out.push(rec);
+    }catch(e){out.push({error:e.message,filename:f.name})}
+    done++;$('#bar').style.width=(done/files.length*100)+'%';
+  }
+  save();busy('#runBtn',false);$('#prog').hidden=true;
+  const ok=out.filter(r=>!r.error).sort((a,b)=>b.score-a.score);
+  $('#batch').innerHTML=`<div class="card"><h3>Batch results (ranked)</h3><div class="tw"><table><thead><tr><th>#</th><th>Candidate</th><th>Score</th><th>Verdict</th><th>Hard</th><th>Soft</th><th>Missing must-haves</th></tr></thead><tbody>`+
+    ok.map((r,i)=>`<tr data-id="${esc(r.id)}"><td>${i+1}</td><td>${esc(r.candidate)}</td><td><b>${r.score}</b></td><td>${vbadge(r.verdict)}</td><td>${r.hard_score}</td><td>${r.soft_score}</td><td>${chips(r.missing_must,'bad')||'<span class="mut">none</span>'}</td></tr>`).join('')+
+    out.filter(r=>r.error).map(r=>`<tr><td>–</td><td>${esc(r.filename)}</td><td colspan="5" style="color:var(--bad)">${esc(r.error)}</td></tr>`).join('')+
+    `</tbody></table></div></div>`;
+  toast(`Evaluated ${ok.length}/${files.length} resume(s)`);
+};
+$('#batch').onclick=e=>{const tr=e.target.closest('tr[data-id]');if(tr)openDetail(tr.dataset.id)};
+
+/* ---------- results ---------- */
+function renderResults(){
+  const R=RES.filter(r=>!r.error);
+  opts('#fRole',[...new Set(R.map(r=>r.role))],'All roles');
+  opts('#fLoc',[...new Set(R.map(r=>r.location))],'All locations');
+  drawTable();
+}
+function filtered(){
+  const q=$('#fq').value.toLowerCase(),role=$('#fRole').value,v=$('#fVerdict').value,loc=$('#fLoc').value,min=+$('#fMin').value;
+  return RES.filter(r=>!r.error&&r.score>=min&&(!role||r.role===role)&&(!v||r.verdict===v)&&(!loc||r.location===loc)&&
+    (!q||[r.candidate,r.email,r.filename,...(r.resume_skills||[])].join(' ').toLowerCase().includes(q))).sort((a,b)=>b.score-a.score);
+}
+function drawTable(){
+  $('#fMinVal').textContent=$('#fMin').value;
+  const L=filtered();$('#resCount').textContent=`${L.length} result(s)`;
+  $('#resBody').innerHTML=L.length?L.map(r=>`<tr data-id="${esc(r.id)}"><td>${esc(r.candidate)}</td><td>${esc(r.email)}</td><td>${esc(r.location)}</td><td>${esc(r.role)}</td><td><b>${r.score}</b></td><td>${vbadge(r.verdict)}</td><td>${chips((r.missing_must||[]).slice(0,4),'bad')||'<span class="mut">none</span>'}</td></tr>`).join(''):'<tr><td colspan="7" class="mut">No results match.</td></tr>';
+}
+['fq','fRole','fVerdict','fLoc','fMin'].forEach(id=>$('#'+id).addEventListener('input',drawTable));
+$('#resBody').onclick=e=>{const tr=e.target.closest('tr[data-id]');if(tr)openDetail(tr.dataset.id)};
+$('#clearBtn').onclick=()=>{if(confirm('Delete all stored results?')){RES=[];save();renderResults()}};
+$('#exportBtn').onclick=()=>{
+  const L=filtered();if(!L.length)return toast('Nothing to export',1);
+  const cols=['candidate','email','location','role','score','verdict','hard_score','soft_score','missing_must','missing_good','filename'];
+  const cell=v=>`"${String(Array.isArray(v)?v.join('; '):v??'').replace(/"/g,'""')}"`;
+  const csv=[cols.join(','),...L.map(r=>cols.map(c=>cell(r[c])).join(','))].join('\n');
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
+  a.download=`resume_results_${new Date().toISOString().slice(0,10)}.csv`;a.click();
+};
+
+/* ---------- detail dialog ---------- */
+function openDetail(id){
+  const r=RES.find(x=>x.id===id);if(!r)return;
+  const li=a=>(a&&a.length)?`<ul>${a.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`:'<p class="mut">None</p>';
+  const comps=Object.entries(r.components||{}).map(([k,v])=>`<div class="bar2"><span class="k">${esc(k.replace('_',' '))}</span><i style="width:${v*1.6}px"></i>${v}</div>`).join('');
+  dlg.innerHTML=`<div class="dh"><h2>${esc(r.candidate)}</h2><button class="sm" id="closeDlg">Close</button></div>
+    <div class="mut">${esc(r.role)} · ${esc(r.location)} · ${esc(r.email)} · ${esc(r.filename)}</div>
+    <p style="font-size:20px;margin:10px 0"><b>${r.score}/100</b> ${vbadge(r.verdict)} <span class="mut" style="font-size:13px">hard ${r.hard_score} · soft ${r.soft_score}${r.llm_used?' (LLM)':' (local)'}</span></p>
+    ${comps}
+    ${r.llm?`<h4>LLM assessment</h4><p>${esc(r.llm.summary)}</p><b>Strengths</b>${li(r.llm.strengths)}<b>Gaps</b>${li(r.llm.gaps)}`:''}
+    <h4>Matched skills</h4>${chips(r.matched_skills,'ok')||'<span class="mut">None</span>'}
+    ${(r.partial_skills||[]).length?`<p class="mut" style="font-size:12px">Approximate (fuzzy) matches: ${esc(r.partial_skills.join(', '))}</p>`:''}
+    <h4>Missing must-have skills</h4>${chips(r.missing_must,'bad')||'<span class="mut">None</span>'}
+    <h4>Missing good-to-have skills</h4>${chips(r.missing_good,'warn')||'<span class="mut">None</span>'}
+    <h4>Missing projects / certifications</h4>${li([...(r.missing_projects||[]),...(r.missing_certs||[])])}
+    <h4>Suggestions for the student</h4>${li(r.suggestions)}`;
+  dlg.showModal();$('#closeDlg').onclick=()=>dlg.close();
+}
+dlg.addEventListener('click',e=>{if(e.target===dlg)dlg.close()});
+
+renderDash();
+</script>
+</body>
+</html>
